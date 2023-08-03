@@ -10,47 +10,65 @@ import './popup.css';
   // To get storage access, we have to mention it in `permissions` property of manifest.json file
   // More information on Permissions can we found at
   // https://developer.chrome.com/extensions/declare_permissions
-  const counterStorage = {
+  const keyPressLoggerStorage = {
     get: (cb: (enable: boolean) => void) => {
       chrome.storage.sync.get(['keyPressLoggerEnable'], (result) => {
         cb(result.keyPressLoggerEnable);
       });
     },
-    set: (enable: boolean, cb: () => void) => {
+    set: (enable: boolean, cb: (eb: boolean) => void) => {
       chrome.storage.sync.set(
-        {
-          keyPressLoggerEnable: enable,
-        },
-        () => {
-          cb();
-        }
+        { keyPressLoggerEnable: enable },
+        () => cb(enable),
       );
     },
   };
 
-  const setupSwitch = () => {
-    document.getElementById('enable-switch')!.addEventListener('change', () => {
-      toggleSwitch();
+  const setupSwitch = (enable: boolean) => {
+    const node = document.getElementById('enable-switch') as HTMLInputElement;
+    if (node) {
+      node.checked = enable
+      node.addEventListener('change', () => {
+        toggleSwitch();
+      });
+    }
+  }
+
+  const sendToggleMessage = (enable: boolean) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+
+      chrome.tabs.sendMessage(
+        tab.id!,
+        {
+          type: 'TOGGLE',
+          payload: { enable },
+        }
+      );
     });
   }
 
   const toggleSwitch = () => {
-    counterStorage.get((enable) => {
-      counterStorage.set(!enable, () => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          const tab = tabs[0];
-
-          chrome.tabs.sendMessage(
-            tab.id!,
-            {
-              type: 'TOGGLE',
-              payload: { enable: !enable },
-            }
-          );
-        });
-      });
+    keyPressLoggerStorage.get((enable) => {
+      keyPressLoggerStorage.set(!enable, sendToggleMessage);
     });
   }
 
-  document.addEventListener('DOMContentLoaded', setupSwitch);
+  function restoreSwitch() {
+    // Restore count value
+    keyPressLoggerStorage.get((enable) => {
+      if (typeof enable === 'undefined') {
+        // Set counter value as 0
+        keyPressLoggerStorage.set(false, (eb) => {
+          sendToggleMessage(eb);
+          setupSwitch(false);
+        });
+      } else {
+        setupSwitch(enable);
+        sendToggleMessage(enable);
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', restoreSwitch);
 })();

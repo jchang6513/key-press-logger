@@ -91,7 +91,7 @@ const getKey = (e: KeyboardEvent) => {
 const onKeyPress = (e: KeyboardEvent) => {
   Toastify({
     text: getKey(e),
-    duration: '2000',
+    duration: 2000,
     gravity: 'bottom',
     position: 'right',
     style: {
@@ -105,13 +105,36 @@ const onKeyPress = (e: KeyboardEvent) => {
   }).showToast();
 }
 
-async function init() {
-  document.addEventListener('keydown', onKeyPress);
+let isInit = false;
+
+const init = () => {
+  if (isInit) return
 
   const toastifyCss = document.createElement('link');
-    toastifyCss.rel = 'stylesheet';
-    toastifyCss.href = 'https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css';
-    document.head.appendChild(toastifyCss);
+  toastifyCss.rel = 'stylesheet';
+  toastifyCss.href = 'https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css';
+  document.head.appendChild(toastifyCss);
+  isInit = true
 }
 
-init();
+const addEvent = () => {
+  document.addEventListener('keydown', onKeyPress);
+}
+
+const removeEvent = () => {
+  document.removeEventListener('keydown', onKeyPress);
+}
+
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.type === 'TOGGLE') {
+    const enable = request.payload.enable;
+    if (enable) {
+      init();
+      addEvent();
+    } else {
+      removeEvent();
+    }
+  }
+
+  return true;
+});
