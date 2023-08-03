@@ -11,15 +11,15 @@ import './popup.css';
   // More information on Permissions can we found at
   // https://developer.chrome.com/extensions/declare_permissions
   const counterStorage = {
-    get: (cb: (count: number) => void) => {
-      chrome.storage.sync.get(['count'], (result) => {
-        cb(result.count);
+    get: (cb: (enable: boolean) => void) => {
+      chrome.storage.sync.get(['keyPressLoggerEnable'], (result) => {
+        cb(result.keyPressLoggerEnable);
       });
     },
-    set: (value: number, cb: () => void) => {
+    set: (enable: boolean, cb: () => void) => {
       chrome.storage.sync.set(
         {
-          count: value,
+          keyPressLoggerEnable: enable,
         },
         () => {
           cb();
@@ -28,52 +28,23 @@ import './popup.css';
     },
   };
 
-  function setupCounter(initialValue = 0) {
-    document.getElementById('counter')!.innerHTML = initialValue.toString();
-
-    document.getElementById('incrementBtn')!.addEventListener('click', () => {
-      updateCounter({
-        type: 'INCREMENT',
-      });
-    });
-
-    document.getElementById('decrementBtn')!.addEventListener('click', () => {
-      updateCounter({
-        type: 'DECREMENT',
-      });
+  const setupSwitch = () => {
+    document.getElementById('enable-switch')!.addEventListener('change', () => {
+      toggleSwitch();
     });
   }
 
-  function updateCounter({ type }: { type: string }) {
-    counterStorage.get((count: number) => {
-      let newCount: number;
-
-      if (type === 'INCREMENT') {
-        newCount = count + 1;
-      } else if (type === 'DECREMENT') {
-        newCount = count - 1;
-      } else {
-        newCount = count;
-      }
-
-      counterStorage.set(newCount, () => {
-        document.getElementById('counter')!.innerHTML = newCount.toString();
-
-        // Communicate with content script of
-        // active tab by sending a message
+  const toggleSwitch = () => {
+    counterStorage.get((enable) => {
+      counterStorage.set(!enable, () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           const tab = tabs[0];
 
           chrome.tabs.sendMessage(
             tab.id!,
             {
-              type: 'COUNT',
-              payload: {
-                count: newCount,
-              },
-            },
-            (response) => {
-              console.log('Current count value passed to contentScript file');
+              type: 'TOGGLE',
+              payload: { enable: !enable },
             }
           );
         });
@@ -81,32 +52,5 @@ import './popup.css';
     });
   }
 
-  function restoreCounter() {
-    // Restore count value
-    counterStorage.get((count: number) => {
-      if (typeof count === 'undefined') {
-        // Set counter value as 0
-        counterStorage.set(0, () => {
-          setupCounter(0);
-        });
-      } else {
-        setupCounter(count);
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', restoreCounter);
-
-  // Communicate with background file by sending a message
-  chrome.runtime.sendMessage(
-    {
-      type: 'GREETINGS',
-      payload: {
-        message: 'Hello, my name is Pop. I am from Popup.',
-      },
-    },
-    (response) => {
-      console.log(response.message);
-    }
-  );
+  document.addEventListener('DOMContentLoaded', setupSwitch);
 })();
