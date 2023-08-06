@@ -1,6 +1,7 @@
 'use strict';
 
 import Toastify from 'toastify-js';
+import { keyPressLoggerStorage } from './storage';
 
 // Content script file will run in the context of web page.
 // With content script you can manipulate the web pages using
@@ -125,16 +126,28 @@ const removeEvent = () => {
   document.removeEventListener('keydown', onKeyPress);
 }
 
+const toggleEvent = (enable: boolean) => {
+  if (enable) {
+    init();
+    addEvent();
+  } else {
+    removeEvent();
+  }
+}
+
+
 chrome.runtime.onMessage.addListener((request) => {
   if (request.type === 'TOGGLE') {
     const enable = request.payload.enable;
-    if (enable) {
-      init();
-      addEvent();
-    } else {
-      removeEvent();
-    }
+    toggleEvent(enable);
   }
 
   return true;
 });
+
+
+(function () {
+  keyPressLoggerStorage.get((enable) => {
+    toggleEvent(enable);
+  });
+}())
